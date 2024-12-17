@@ -100,9 +100,22 @@ export const exchangeToken = async (
   openIdConfig: ObjectOf<any>,
   code: string
 ): Promise<Authentication> => {
-  const uri = `${openIdConfig.token_endpoint}?grant_type=authorization_code&client_id=${process.env.CLIENT_ID}&client_secret=${process.env.CLIENT_SECRET}&code=${code}&redirect_uri=${REDIRECT_URI}${AUTH_CALLBACK_ROUTE}`;
+  const uri = openIdConfig.token_endpoint;
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    client_id: process.env.CLIENT_ID || '',
+    client_secret: process.env.CLIENT_SECRET || '',
+    code,
+    redirect_uri: `${REDIRECT_URI}${AUTH_CALLBACK_ROUTE}`,
+  });
 
-  return await fetch(uri).then(async (response) => {
+  return await fetch(uri, {
+    method: Methods.POST,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: body.toString(),
+  }).then(async (response) => {
     if (response.status != 200) {
       throw new Error('Error while exchanging token');
     }
@@ -115,16 +128,26 @@ export const refreshToken = async (
   openIdConfig: OpenIdConfiguration,
   refreshToken: string
 ): Promise<Authentication> => {
-  const uri = `${openIdConfig.token_endpoint}?grant_type=refresh_token&client_id=${process.env.CLIENT_ID}&client_secret=${process.env.CLIENT_SECRET}&refresh_token=${refreshToken}`;
+  const uri = openIdConfig.token_endpoint;
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    client_id: process.env.CLIENT_ID || '',
+    client_secret: process.env.CLIENT_SECRET || '',
+    refresh_token: refreshToken,
+  });
 
-  return fetch(uri, {
-    method: 'POST',
+  return await fetch(uri, {
+    method: Methods.POST,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: body.toString(),
   }).then(async (response) => {
     if (response.status != 200) {
       throw new Error('Error while refreshing access token');
     }
 
-    return await response.json();
+    return response.json();
   });
 };
 
@@ -135,13 +158,17 @@ export const introspect = async (
   const auth = `${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`;
   const buff = new Buffer(auth);
   const basic = buff.toString('base64');
-  const data = new FormData();
-  data.append('token', accessToken || '');
+  const body = new URLSearchParams({
+    token: accessToken || '',
+  });
 
   return fetch(openIdConfig.introspection_endpoint, {
-    headers: { Authorization: `Basic ${basic}` },
     method: Methods.POST,
-    body: data,
+    headers: {
+      Authorization: `Basic ${basic}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: body.toString(),
   }).then(async (response) => {
     if (response.status != 200) {
       throw new Error('Error while instrospecting access token');
